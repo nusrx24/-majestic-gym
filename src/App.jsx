@@ -15,6 +15,7 @@ import Equipment from './pages/Equipment';
 import MemberKiosk from './pages/MemberKiosk';
 import Store from './pages/Store';
 import Inventory from './pages/Inventory';
+import MemberShop from './pages/MemberShop';
 
 const ProtectedRoute = ({ children }) => {
   const { user, profile, loading } = useAuth();
@@ -69,6 +70,7 @@ function App() {
             <Route path="billing" element={<Packages />} />
             <Route path="revenue" element={<RevenueHistory />} />
             <Route path="members/:id" element={<MemberDetail />} />
+            <Route path="shop" element={<MemberShop />} />
             <Route path="store" element={<Store />} />
             <Route path="inventory" element={<RoleProtectedRoute requireOwner={true}><Inventory /></RoleProtectedRoute>} />
           </Route>

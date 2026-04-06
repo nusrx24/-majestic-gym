@@ -10,9 +10,9 @@ const Sidebar = () => {
     { name: 'Dashboard', icon: LayoutDashboard, path: '/' },
     { name: 'Members', icon: Users, path: '/members' },
     { name: 'Attendance', icon: CalendarCheck, path: '/attendance' },
-    { name: 'Equipment', icon: Dumbbell, path: '/equipment' }, // New Equipment module
-    { name: 'Store', icon: ShoppingBag, path: '/store' }, // New Store module
-    { name: 'Inventory', icon: Package, path: '/inventory', ownerOnly: true }, // New Inventory module
+    { name: 'Shop', icon: ShoppingBag, path: '/shop' }, // Member-side shopping
+    { name: 'Store', icon: ShoppingBag, path: '/store', ownerOnly: false }, // Staff-side terminal
+    { name: 'Inventory', icon: Package, path: '/inventory', ownerOnly: true },
     { name: 'Packages & Pay', icon: CreditCard, path: '/billing' },
     { name: 'Revenue', icon: BarChart3, path: '/revenue', ownerOnly: true },
     { name: 'Settings', icon: Settings, path: '/settings', ownerOnly: true },
