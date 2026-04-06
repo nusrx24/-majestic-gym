@@ -45,14 +45,48 @@ const Inventory = () => {
     fetchItems();
   }, []);
 
+  const [uploading, setUploading] = useState(false);
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    try {
+      setUploading(true);
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random()}.${fileExt}`;
+      const filePath = `products/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('product-images')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('product-images')
+        .getPublicUrl(filePath);
+
+      setFormData(prev => ({ ...prev, image_url: publicUrl }));
+    } catch (err) {
+      console.error("Upload Error:", err);
+      alert("Error: " + err.message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
+    
     const payload = {
-      ...formData,
+      name: formData.name,
+      category: formData.category,
       price: parseFloat(formData.price),
-      cost_price: formData.cost_price ? parseFloat(formData.cost_price) : null,
       stock_level: parseInt(formData.stock_level),
-      min_stock_alert: parseInt(formData.min_stock_alert)
+      min_stock_alert: parseInt(formData.min_stock_alert),
+      image_url: formData.image_url || null
     };
 
     if (editingItem) {
@@ -60,9 +94,12 @@ const Inventory = () => {
         .from('inventory_items')
         .update(payload)
         .eq('id', editingItem.id);
+      
       if (!error) {
         setItems(items.map(item => item.id === editingItem.id ? { ...item, ...payload } : item));
         setEditingItem(null);
+      } else {
+        alert("Update failed: " + error.message);
       }
     } else {
       const { data, error } = await supabase
@@ -70,12 +107,16 @@ const Inventory = () => {
         .insert([payload])
         .select()
         .single();
+      
       if (data) {
         setItems([...items, data]);
         setIsAdding(false);
+      } else {
+        alert("Insert failed: " + error.message);
       }
     }
     resetForm();
+    setLoading(false);
   };
 
   const handleDelete = async (id) => {
@@ -261,6 +302,40 @@ const Inventory = () => {
               
               <form onSubmit={handleSubmit} className="space-y-6">
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                     <div className="md:col-span-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-textSecondary mb-2 block text-center">Product Image</label>
+                        <div className="flex flex-col items-center gap-4 p-6 border-2 border-dashed border-gray-800 rounded-2xl bg-black/30 hover:border-neon transition-all group relative">
+                           {formData.image_url ? (
+                             <div className="relative w-32 h-32">
+                                <img src={formData.image_url} alt="Preview" className="w-full h-full object-cover rounded-xl border border-gray-700" />
+                                <button 
+                                  type="button"
+                                  onClick={() => setFormData({...formData, image_url: ''})}
+                                  className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full shadow-lg"
+                                >
+                                   <X className="w-3 h-3" />
+                                </button>
+                             </div>
+                           ) : (
+                             <div className="flex flex-col items-center gap-2 opacity-40 group-hover:opacity-100 transition-opacity">
+                                <Plus className="w-8 h-8 text-neon" />
+                                <p className="text-[9px] font-black uppercase tracking-widest">Select Product Photo</p>
+                             </div>
+                           )}
+                           <input 
+                             type="file" 
+                             accept="image/*"
+                             onChange={handleFileUpload}
+                             className="absolute inset-0 opacity-0 cursor-pointer"
+                           />
+                           {uploading && (
+                             <div className="absolute inset-0 bg-black/60 flex items-center justify-center rounded-2xl">
+                                <Loader2 className="w-6 h-6 text-neon animate-spin" />
+                             </div>
+                           )}
+                        </div>
+                     </div>
+                    
                     <div className="md:col-span-2">
                        <label className="text-[10px] font-black uppercase tracking-widest text-textSecondary mb-2 block">Product Name</label>
                        <input 

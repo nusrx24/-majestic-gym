@@ -18,10 +18,7 @@ Deno.serve(async (req) => {
 
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object;
-      
-      const memberId = session.metadata.member_id;
-      const packageId = session.metadata.package_id;
-      const durationDays = parseInt(session.metadata.duration_days);
+      const type = session.metadata.transaction_type || 'membership';
 
       // Initialize Supabase Admin Client using secure Service Role key
       const supabaseAdmin = createClient(
@@ -29,34 +26,63 @@ Deno.serve(async (req) => {
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
       );
 
-      // Fetch existing subscription to handle renewal logic automatically
-      const { data: existingData } = await supabaseAdmin
-        .from('member_subscriptions')
-        .select('end_date')
-        .eq('member_id', memberId)
-        .eq('payment_status', 'paid')
-        .order('end_date', { ascending: false })
-        .limit(1);
+      if (type === 'membership') {
+        const memberId = session.metadata.member_id;
+        const packageId = session.metadata.package_id;
+        const durationDays = parseInt(session.metadata.duration_days);
 
-      let startDate = new Date();
-      if (existingData && existingData.length > 0 && new Date(existingData[0].end_date) >= new Date()) {
-        startDate = new Date(existingData[0].end_date);
-        startDate.setDate(startDate.getDate() + 1); // Start day after it expires
+        // Fetch existing subscription to handle renewal logic automatically
+        const { data: existingData } = await supabaseAdmin
+          .from('member_subscriptions')
+          .select('end_date')
+          .eq('member_id', memberId)
+          .eq('payment_status', 'paid')
+          .order('end_date', { ascending: false })
+          .limit(1);
+
+        let startDate = new Date();
+        if (existingData && existingData.length > 0 && new Date(existingData[0].end_date) >= new Date()) {
+          startDate = new Date(existingData[0].end_date);
+          startDate.setDate(startDate.getDate() + 1); // Start day after it expires
+        }
+
+        const endDate = new Date(startDate);
+        endDate.setDate(endDate.getDate() + durationDays);
+
+        await supabaseAdmin.from('member_subscriptions').insert([{
+          member_id: memberId,
+          package_id: packageId,
+          start_date: startDate.toISOString().split('T')[0],
+          end_date: endDate.toISOString().split('T')[0],
+          payment_method: 'stripe_online',
+          payment_status: 'paid',
+          amount_paid: (session.amount_total || 0) / 100, // Store actual Stripe amount paid
+          stripe_checkout_session: session.id
+        }]);
+      } else if (type === 'store_sale') {
+        const saleId = session.metadata.sale_id;
+
+        // 1. Mark Sale as Paid
+        await supabaseAdmin
+          .from('inventory_sales')
+          .update({ payment_status: 'paid' })
+          .eq('id', saleId);
+
+        // 2. Fetch Sale Items and Decrement Stock
+        const { data: items } = await supabaseAdmin
+          .from('inventory_sale_items')
+          .select('product_id, quantity')
+          .eq('sale_id', saleId);
+
+        if (items) {
+          for (const item of items) {
+            await supabaseAdmin.rpc('decrement_stock', { 
+              item_id: item.product_id, 
+              qty: item.quantity 
+            });
+          }
+        }
       }
-
-      const endDate = new Date(startDate);
-      endDate.setDate(endDate.getDate() + durationDays);
-
-      await supabaseAdmin.from('member_subscriptions').insert([{
-        member_id: memberId,
-        package_id: packageId,
-        start_date: startDate.toISOString().split('T')[0],
-        end_date: endDate.toISOString().split('T')[0],
-        payment_method: 'stripe_online',
-        payment_status: 'paid',
-        amount_paid: (session.amount_total || 0) / 100, // Store actual Stripe amount paid
-        stripe_checkout_session: session.id
-      }]);
     }
 
     return new Response(JSON.stringify({ received: true }), { status: 200 });

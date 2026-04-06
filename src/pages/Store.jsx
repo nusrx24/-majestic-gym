@@ -99,7 +99,44 @@ const Store = () => {
 
   const subtotal = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
 
-  const handleCheckout = async () => {
+  const handleStripeCheckout = async () => {
+    if (cart.length === 0 || !selectedMember) {
+      alert("Please select a member for Card payments.");
+      return;
+    }
+    setIsCheckingOut(true);
+
+    try {
+      const { data: { session: authSession } } = await supabase.auth.getSession();
+      
+      const { data, error } = await supabase.functions.invoke('stripe-store-checkout', {
+        headers: {
+          Authorization: `Bearer ${authSession?.access_token}`
+        },
+        body: {
+          cartItems: cart.map(item => ({
+            id: item.id,
+            name: item.name,
+            price: item.price,
+            quantity: item.quantity
+          })),
+          memberId: selectedMember.id,
+          staffCreated: true
+        }
+      });
+
+      if (error) throw error;
+      
+      if (data?.url) {
+        window.location.href = data.url;
+      }
+    } catch (err) {
+      alert("Stripe Error: " + err.message);
+      setIsCheckingOut(false);
+    }
+  };
+
+  const handleCashCheckout = async () => {
     if (cart.length === 0) return;
     setIsCheckingOut(true);
 
@@ -110,7 +147,8 @@ const Store = () => {
         .insert([{
           member_id: selectedMember?.id || null,
           total_amount: subtotal,
-          payment_method: paymentMethod
+          payment_method: 'cash',
+          payment_status: 'paid'
         }])
         .select()
         .single();
@@ -119,7 +157,6 @@ const Store = () => {
 
       // 2. Create Sale Items & Update Stock
       for (const item of cart) {
-        // Add to sale_items
         await supabase.from('inventory_sale_items').insert([{
           sale_id: sale.id,
           product_id: item.id,
@@ -127,20 +164,19 @@ const Store = () => {
           unit_price: item.price
         }]);
 
-        // Decrement stock
         await supabase.rpc('decrement_stock', { 
           item_id: item.id, 
           qty: item.quantity 
         });
       }
 
-      alert("Sale successful! Stock updated.");
+      alert("Cash sale successful!");
       setCart([]);
       setSelectedMember(null);
-      fetchProducts(); // Refresh products with new stock levels
+      fetchProducts();
     } catch (err) {
-      console.error("Checkout Error:", err);
-      alert("Error processing sale: " + err.message);
+      console.error("Sale Error:", err);
+      alert("Error: " + err.message);
     } finally {
       setIsCheckingOut(false);
     }
@@ -343,45 +379,43 @@ const Store = () => {
                  </div>
                )}
 
-               {/* Totals & Checkout */}
+               {/* Checkout Actions */}
                <div className="space-y-4">
                   <div className="flex items-center justify-between px-2">
                      <p className="text-textSecondary text-xs font-black uppercase tracking-widest">Total Payable</p>
                      <p className="text-2xl font-black text-white italic tracking-tighter">Rs. {subtotal}</p>
                   </div>
 
-                  <div className="flex gap-2">
+                  <div className="grid grid-cols-1 gap-3">
                      <button 
-                       onClick={() => setPaymentMethod('cash')}
-                       className={`flex-1 p-4 rounded-2xl border transition-all flex flex-col items-center gap-1 group ${
-                         paymentMethod === 'cash' ? 'bg-neon/10 border-neon text-neon' : 'bg-gray-900 border-gray-800 text-textSecondary'
-                       }`}
+                       onClick={handleCashCheckout}
+                       disabled={cart.length === 0 || isCheckingOut}
+                       className="w-full py-4 bg-gray-800 border border-gray-700 rounded-2xl text-white font-black uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-gray-700 transition-all disabled:opacity-50"
                      >
-                        <Banknote className="w-5 h-5" />
-                        <span className="text-[10px] font-black uppercase tracking-widest">Cash</span>
+                        {isCheckingOut ? <Loader2 className="w-5 h-5 animate-spin" /> : (
+                          <>
+                             Record Cash Sale <Banknote className="w-5 h-5" />
+                          </>
+                        )}
                      </button>
+
                      <button 
-                       onClick={() => setPaymentMethod('card')}
-                       className={`flex-1 p-4 rounded-2xl border transition-all flex flex-col items-center gap-1 group ${
-                         paymentMethod === 'card' ? 'bg-neon/10 border-neon text-neon' : 'bg-gray-900 border-gray-800 text-textSecondary'
-                       }`}
+                       onClick={handleStripeCheckout}
+                       disabled={cart.length === 0 || !selectedMember || isCheckingOut}
+                       className="w-full py-5 bg-purple-600 rounded-2xl text-white font-black uppercase tracking-widest flex items-center justify-center gap-3 shadow-[0_0_30px_rgba(147,51,234,0.3)] hover:scale-105 transition-transform disabled:opacity-50 disabled:scale-100 group"
                      >
-                        <CreditCard className="w-5 h-5" />
-                        <span className="text-[10px] font-black uppercase tracking-widest">Card</span>
+                        {isCheckingOut ? <Loader2 className="w-6 h-6 animate-spin" /> : (
+                          <>
+                             Pay with Card (Stripe) <CreditCard className="w-6 h-6 group-hover:scale-110 transition-transform" />
+                          </>
+                        )}
                      </button>
                   </div>
-
-                  <button 
-                    onClick={handleCheckout}
-                    disabled={cart.length === 0 || isCheckingOut}
-                    className="w-full py-5 bg-neon rounded-2xl text-black font-black uppercase tracking-widest flex items-center justify-center gap-3 shadow-[0_0_40px_rgba(204,255,0,0.3)] hover:scale-105 transition-transform disabled:opacity-50 disabled:scale-100 group"
-                  >
-                     {isCheckingOut ? <Loader2 className="w-6 h-6 animate-spin" /> : (
-                       <>
-                          Complete Purchase <CheckCircle2 className="w-6 h-6 group-hover:scale-110 transition-transform" />
-                       </>
-                     )}
-                  </button>
+                  {!selectedMember && cart.length > 0 && (
+                    <p className="text-[9px] text-center text-purple-400 font-bold uppercase tracking-widest animate-pulse">
+                       * Select a member to enable Card payment
+                    </p>
+                  )}
                </div>
             </div>
          </div>
