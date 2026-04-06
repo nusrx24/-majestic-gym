@@ -1,0 +1,23 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-background text-textPrimary font-sans antialiased;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-neon text-background font-bold py-2 px-6 rounded-lg transition-all hover:opacity-90 active:scale-95;
+  }
+  
+  .card {
+    @apply bg-surface rounded-xl p-6 border border-gray-800 shadow-xl;
+  }
+  
+  .input-field {
+    @apply w-full bg-background border border-gray-700 rounded-lg px-4 py-2 text-textPrimary focus:outline-none focus:border-neon focus:ring-1 focus:ring-neon transition-colors;
+  }
+}
