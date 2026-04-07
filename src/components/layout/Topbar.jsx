@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Bell, User, Calendar, ArrowRight, X, LogOut } from 'lucide-react';
+import { Bell, User, Calendar, ArrowRight, X, LogOut, Menu } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { useAuth } from '../../context/AuthContext';
 
-const Topbar = () => {
+const Topbar = ({ onToggleMenu }) => {
   const { profile, gymSettings, logout } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
@@ -48,13 +48,19 @@ const Topbar = () => {
   }, []);
 
   return (
-    <header className="h-16 bg-surface border-b border-gray-800 flex items-center justify-between px-6 sticky top-0 z-40 w-full">
-      <div className="flex-1 flex items-center gap-4">
+    <header className="h-16 bg-surface border-b border-gray-800 flex items-center justify-between px-4 md:px-6 sticky top-0 z-40 w-full">
+      <div className="flex-1 flex items-center gap-2 md:gap-4">
+        <button 
+          onClick={onToggleMenu} 
+          className="md:hidden p-2 text-white hover:text-neon transition-colors"
+        >
+          <Menu className="w-6 h-6" />
+        </button>
         {gymSettings.logo_url && !logoError ? (
           <img 
             src={gymSettings.logo_url} 
             alt={gymSettings.gym_name} 
-            className="h-10 w-auto cursor-pointer object-contain hover:scale-105 transition-transform" 
+            className="h-8 md:h-10 w-auto cursor-pointer object-contain hover:scale-105 transition-transform" 
             onClick={() => navigate('/')}
             onError={() => setLogoError(true)}
           />
@@ -138,7 +144,11 @@ const Topbar = () => {
 
         <div className="flex items-center gap-4 border-l border-gray-800 pl-6 cursor-pointer group">
           <div className="w-10 h-10 rounded-2xl bg-gray-800 flex items-center justify-center text-textSecondary group-hover:text-neon transition-all border border-gray-700 group-hover:border-neon/30 overflow-hidden shadow-inner font-black">
-             {getInitials(profile?.full_name)}
+             {profile?.avatar_url ? (
+                 <img src={profile.avatar_url} alt="Profile" className="w-full h-full object-cover" />
+             ) : (
+                 getInitials(profile?.full_name)
+             )}
           </div>
           <div className="hidden sm:block text-left">
             <p className="text-sm font-black text-white leading-none tracking-tight uppercase">

@@ -20,6 +20,63 @@ const Settings = () => {
     password: ''
   });
 
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [passData, setPassData] = useState({ newPass: '', confirmPass: '' });
+  const [passLoading, setPassLoading] = useState(false);
+
+  const handleAvatarUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    try {
+      setAvatarUploading(true);
+      const fileExt = file.name.split('.').pop();
+      const fileName = `avatar_${profile.id}_${Date.now()}.${fileExt}`;
+      const filePath = `avatars/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('member-photos')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('member-photos')
+        .getPublicUrl(filePath);
+
+      const { error: dbError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: publicUrl })
+        .eq('id', profile.id);
+
+      if (dbError) throw dbError;
+      
+      alert("Profile photo updated! Reloading...");
+      window.location.reload();
+    } catch (err) {
+      console.error(err);
+      alert("Upload failed: " + err.message);
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
+
+  const handlePasswordChange = async (e) => {
+    e.preventDefault();
+    if (passData.newPass !== passData.confirmPass) {
+       return alert("Passwords do not match");
+    }
+    setPassLoading(true);
+    const { error } = await supabase.auth.updateUser({ password: passData.newPass });
+    setPassLoading(false);
+    if (error) {
+       alert("Error: " + error.message);
+    } else {
+       alert("Password updated successfully!");
+       setPassData({ newPass: '', confirmPass: '' });
+    }
+  };
+
   const handleLogoUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -164,8 +221,23 @@ const Settings = () => {
         
         <div className="card max-w-lg mx-auto mt-10">
            <div className="flex flex-col items-center p-8">
-              <div className="w-24 h-24 bg-gray-800 rounded-3xl flex items-center justify-center text-neon text-3xl font-black mb-6">
-                 {profile?.full_name?.[0].toUpperCase()}
+              <div className="relative group mb-6">
+                 <div className="w-24 h-24 bg-gray-800 rounded-3xl flex items-center justify-center text-neon text-3xl font-black overflow-hidden border-2 border-gray-700 group-hover:border-neon transition-all">
+                    {profile?.avatar_url ? (
+                       <img src={profile.avatar_url} alt="Profile" className="w-full h-full object-cover" />
+                    ) : (
+                       profile?.full_name?.[0].toUpperCase()
+                    )}
+                    {avatarUploading && (
+                       <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                          <RefreshCw className="w-6 h-6 text-neon animate-spin" />
+                       </div>
+                    )}
+                 </div>
+                 <label className="absolute -bottom-2 -right-2 w-8 h-8 bg-neon rounded-xl flex items-center justify-center cursor-pointer shadow-lg ring-4 ring-background hover:scale-110 transition-all">
+                    <Plus className="w-4 h-4 text-black" />
+                    <input type="file" className="hidden" accept="image/*" onChange={handleAvatarUpload} disabled={avatarUploading} />
+                 </label>
               </div>
               <h2 className="text-2xl font-bold uppercase">{profile?.full_name}</h2>
               <p className="text-neon text-xs font-black uppercase tracking-widest mt-2">{profile?.role}</p>
@@ -228,6 +300,24 @@ const Settings = () => {
                <div className="flex items-center gap-2 mt-4 justify-center md:justify-start">
                   <span className="px-2 py-1 bg-neon text-black text-[10px] font-black uppercase tracking-widest rounded">Current Name: {gymSettings.gym_name}</span>
                </div>
+
+               {/* Password Change Section for Staff */}
+               <div className="w-full mt-8 pt-6 border-t border-gray-800">
+                  <h3 className="text-sm font-black text-white uppercase tracking-widest mb-4 flex items-center gap-2">
+                     <Key className="w-4 h-4 text-neon" /> Security
+                  </h3>
+                  <form onSubmit={handlePasswordChange} className="space-y-4">
+                     <div>
+                        <input type="password" required value={passData.newPass} onChange={e => setPassData({...passData, newPass: e.target.value})} className="input-field w-full" placeholder="New Password" />
+                     </div>
+                     <div>
+                        <input type="password" required value={passData.confirmPass} onChange={e => setPassData({...passData, confirmPass: e.target.value})} className="input-field w-full" placeholder="Confirm Password" />
+                     </div>
+                     <button type="submit" disabled={passLoading} className="btn-primary w-full py-3">
+                        {passLoading ? <RefreshCw className="w-5 h-5 animate-spin mx-auto" /> : 'Update Password'}
+                     </button>
+                  </form>
+               </div>
             </div>
          </div>
       </div>
@@ -235,10 +325,25 @@ const Settings = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Profile Card */}
         <div className="lg:col-span-1 border-r border-gray-800 pr-6">
-           <div className="card bg-gradient-to-br from-neon/10 via-transparent to-transparent border-neon/20">
+            <div className="card bg-gradient-to-br from-neon/10 via-transparent to-transparent border-neon/20">
               <div className="flex flex-col items-center text-center p-4">
-                 <div className="w-20 h-20 bg-neon rounded-3xl flex items-center justify-center text-background font-black text-3xl shadow-[0_0_30px_rgba(204,255,0,0.3)] mb-6">
-                    {profile.full_name?.[0].toUpperCase()}
+                 <div className="relative group mb-6">
+                    <div className="w-24 h-24 bg-neon rounded-3xl flex items-center justify-center text-background font-black text-3xl shadow-[0_0_30px_rgba(204,255,0,0.3)] overflow-hidden">
+                       {profile.avatar_url ? (
+                          <img src={profile.avatar_url} alt="Profile" className="w-full h-full object-cover" />
+                       ) : (
+                          profile.full_name?.[0].toUpperCase()
+                       )}
+                       {avatarUploading && (
+                          <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                             <RefreshCw className="w-6 h-6 text-neon animate-spin" />
+                          </div>
+                       )}
+                    </div>
+                    <label className="absolute -bottom-2 -right-2 w-8 h-8 bg-black rounded-xl border border-gray-800 flex items-center justify-center cursor-pointer shadow-lg hover:scale-110 transition-all text-neon">
+                       <Plus className="w-4 h-4" />
+                       <input type="file" className="hidden" accept="image/*" onChange={handleAvatarUpload} disabled={avatarUploading} />
+                    </label>
                  </div>
                  <h2 className="text-xl font-black text-white uppercase tracking-tight">{profile.full_name}</h2>
                  <p className="px-3 py-1 bg-neon/10 text-neon text-[10px] font-black uppercase tracking-widest border border-neon/20 rounded-full mt-2">
@@ -329,8 +434,12 @@ const Settings = () => {
                 <div key={p.id} className="p-6 hover:bg-gray-800/10 transition-all group">
                    <div className="flex items-start justify-between">
                       <div className="flex items-center gap-4">
-                         <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black ${p.is_active ? 'bg-gray-800 text-white' : 'bg-red-900/20 text-red-500 opacity-50'}`}>
-                            {p.full_name?.[0].toUpperCase() || '?'}
+                         <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black overflow-hidden ${p.is_active ? 'bg-gray-800 text-white' : 'bg-red-900/20 text-red-500 opacity-50'}`}>
+                            {p.avatar_url ? (
+                               <img src={p.avatar_url} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                               p.full_name?.[0].toUpperCase() || '?'
+                            )}
                          </div>
                          <div>
                             <div className="flex items-center gap-2">

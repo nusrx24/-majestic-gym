@@ -33,8 +33,10 @@ import {
   Cell
 } from 'recharts';
 import { format, subDays, startOfMonth, startOfDay, endOfDay } from 'date-fns';
+import { useAuth } from '../context/AuthContext';
 
 const Dashboard = () => {
+  const { profile } = useAuth();
   const [stats, setStats] = useState({
     totalMembers: 0,
     activeMembers: 0,
@@ -235,12 +237,23 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-6 pb-10 overflow-hidden">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">Admin Dashboard</h1>
-          <p className="text-textSecondary mt-1">Majestic GYM Overview & Analytics</p>
+      <div className="flex justify-between items-center bg-gray-900/40 p-6 rounded-2xl border border-gray-800">
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 rounded-2xl bg-gray-800 flex items-center justify-center text-neon font-black text-xl border-2 border-gray-700 overflow-hidden shadow-inner hidden md:flex">
+             {profile?.avatar_url ? (
+                <img src={profile.avatar_url} alt="Profile" className="w-full h-full object-cover" />
+             ) : (
+                profile?.full_name?.[0]?.toUpperCase() || '?'
+             )}
+          </div>
+          <div>
+            <h1 className="text-2xl font-black text-white tracking-tight uppercase italic">
+              Welcome back, {profile?.full_name?.split(' ')[0] || 'Admin'}
+            </h1>
+            <p className="text-textSecondary mt-1 text-sm font-bold tracking-widest uppercase">Majestic GYM Overview & Analytics</p>
+          </div>
         </div>
-        <button onClick={fetchDashboardData} className="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-white text-sm transition-colors border border-gray-700">
+        <button onClick={fetchDashboardData} className="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-white text-sm transition-colors border border-gray-700 font-bold uppercase tracking-widest hidden sm:block">
            Refresh Stats
         </button>
       </div>

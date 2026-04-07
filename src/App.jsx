@@ -16,6 +16,7 @@ import MemberKiosk from './pages/MemberKiosk';
 import Store from './pages/Store';
 import Inventory from './pages/Inventory';
 import MemberShop from './pages/MemberShop';
+import ResetPassword from './pages/ResetPassword';
 
 const ProtectedRoute = ({ children }) => {
   const { user, profile, loading } = useAuth();
@@ -57,6 +58,7 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           
           <Route path="/" element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
             <Route index element={<Dashboard />} />

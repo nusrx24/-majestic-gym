@@ -14,16 +14,22 @@ const MemberKiosk = () => {
   const [lastAction, setLastAction] = useState(null);
 
   useEffect(() => {
+    // Make qrbox responsive to screen size to avoid overflowing on mobile
+    const qrboxSize = window.innerWidth < 500 ? 200 : 250;
+
     const scanner = new Html5QrcodeScanner('kiosk-reader', {
       fps: 10,
-      qrbox: 250,
-      aspectRatio: 1.0
-    });
+      qrbox: { width: qrboxSize, height: qrboxSize },
+      aspectRatio: 1.0,
+      videoConstraints: {
+        facingMode: "environment"
+      }
+    }, false);
 
     scanner.render(onScanSuccess, onScanError);
 
     return () => {
-      scanner.clear();
+      scanner.clear().catch(console.error);
     };
   }, [step]);
 
